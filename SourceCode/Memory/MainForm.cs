@@ -11,18 +11,23 @@ namespace Memory
             InitializeComponent();
         }
 
+        private void MainForm_Load(object sender, EventArgs e)
+        {
+            Text = $"pid = {Process.GetCurrentProcess().Id}";
+        }
+
         private void btnIDisposable_Click(object sender, EventArgs e)
         {
             // 1. effect of the "using" statement <-> try/finally 
             using (DisposableWrapper dw1 = new DisposableWrapper(100))
             {
-                Debug.WriteLine("do something with DisposableWrapper...");
+                Trace.WriteLine("do something with DisposableWrapper...");
             }
 
             DisposableWrapper dw2 = new DisposableWrapper(200);
             try
             {
-                Debug.WriteLine("do something with DisposableWrapper...");
+                Trace.WriteLine("do something with DisposableWrapper...");
             }
             finally
             {
@@ -32,7 +37,7 @@ namespace Memory
             // TODO: look at the generated code in decompiler
 
             // 2. without the "using" statement
-            DisposableWrapper never = new DisposableWrapper(300);
+            DisposableWrapper neverUsed = new DisposableWrapper(300);
             GC.Collect();   // the finalizer is not called here!
 
             // difference between RELEASE and DEBUG optimizations

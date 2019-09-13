@@ -95,6 +95,7 @@
             this.Font = new System.Drawing.Font("Microsoft Sans Serif", 7.8F);
             this.Name = "MainForm";
             this.Text = "Memory";
+            this.Load += new System.EventHandler(this.MainForm_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
 
