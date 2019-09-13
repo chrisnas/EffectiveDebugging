@@ -17,12 +17,14 @@ namespace DebugMeow.Games.Tetris
         private const int MoveSpeedInMilliseconds = 100;
         private const int RotateSpeedInMilliseconds = 300;
 
+        public const int KEY_PRESSED = 0x8000;
+
         private readonly Point _startPosition = new Point(5, 0);
+        private readonly Timer _timer;
+        private readonly Brush _backgroundBrush;
 
         private readonly Brush[,] _grid;
-
         private Brush[] _palette;
-
         private Block[] _blocks;
 
         private Block _currentBlock;
@@ -32,18 +34,9 @@ namespace DebugMeow.Games.Tetris
 
         private Random _rnd = new Random();
 
-        private readonly Timer _timer;
-
         private Stopwatch _lastUpdate = new Stopwatch();
         private Stopwatch _lastMove = new Stopwatch();
         private Stopwatch _lastRotate = new Stopwatch();
-
-
-        private readonly Brush _backgroundBrush;
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true)]
-        public static extern short GetKeyState(int keyCode);
-        public const int KEY_PRESSED = 0x8000;
 
         public TetrisForm()
         {
@@ -62,6 +55,9 @@ namespace DebugMeow.Games.Tetris
 
             ClearGrid();
         }
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true)]
+        public static extern short GetKeyState(int keyCode);
 
         public static bool IsKeyDown(Keys key)
         {
@@ -214,7 +210,6 @@ namespace DebugMeow.Games.Tetris
             if (needRefresh)
             {
                 GameArea.Invalidate();
-                //Render();
             }
         }
 
@@ -330,6 +325,46 @@ namespace DebugMeow.Games.Tetris
             }
         }
 
+        private void TetrisForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            _timer.Stop();
+        }
+
+        private void GameArea_Paint(object sender, PaintEventArgs e)
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            e.Graphics.Clear(BackColor);
+
+            for (int i = 0; i < Width; i++)
+            {
+                for (int j = 0; j < Height; j++)
+                {
+                    if (_grid[i, j] != _backgroundBrush)
+                    {
+                        FillRectangle(e.Graphics, _grid[i, j], i, j);
+                    }
+                }
+            }
+
+            if (_currentBlock != null)
+            {
+                foreach (var point in _currentBlock.GetCoordinates())
+                {
+                    if (_currentPosition.Y + point.Y < 0)
+                    {
+                        // Block is partially outside screen
+                        continue;
+                    }
+
+                    FillRectangle(e.Graphics, _currentBlock.Brush, _currentPosition.X + point.X, _currentPosition.Y + point.Y);
+                }
+            }
+        }
+
         private void InitPalette()
         {
             _palette = new[]
@@ -376,46 +411,6 @@ namespace DebugMeow.Games.Tetris
             _blocks[6] = new Block( // T
                 _palette[7],
                 new[] { (1, 0), (0, 1), (1, 1), (2, 1) });
-        }
-
-        private void TetrisForm_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            _timer.Stop();
-        }
-
-        private void GameArea_Paint(object sender, PaintEventArgs e)
-        {
-            if (IsDisposed)
-            {
-                return;
-            }
-
-            e.Graphics.Clear(BackColor);
-
-            for (int i = 0; i < Width; i++)
-            {
-                for (int j = 0; j < Height; j++)
-                {
-                    if (_grid[i, j] != _backgroundBrush)
-                    {
-                        FillRectangle(e.Graphics, _grid[i, j], i, j);
-                    }
-                }
-            }
-
-            if (_currentBlock != null)
-            {
-                foreach (var point in _currentBlock.GetCoordinates())
-                {
-                    if (_currentPosition.Y + point.Y < 0)
-                    {
-                        // Block is partially outside screen
-                        continue;
-                    }
-
-                    FillRectangle(e.Graphics, _currentBlock.Brush, _currentPosition.X + point.X, _currentPosition.Y + point.Y);
-                }
-            }
         }
     }
 }

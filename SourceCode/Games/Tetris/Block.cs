@@ -8,15 +8,12 @@ namespace DebugMeow.Games.Tetris
     {
         private readonly Point[] _coordinates;
 
-        private int _maxWidth;
-
         public Block(Brush brush, (int x, int y)[] coordinates)
         {
             Brush = brush;
             _coordinates = coordinates.Select(p => (Point)p).ToArray();
 
             MaxHeight = _coordinates.Max(c => c.Y);
-            _maxWidth = _coordinates.Max(c => c.X);
         }
 
         public int Rotation { get; set; }
@@ -41,7 +38,6 @@ namespace DebugMeow.Games.Tetris
 
             foreach (var point in GetCoordinates(rotation - 1))
             {
-                //yield return (point.Y, _maxWidth - point.X);
                 yield return (MaxHeight - point.Y, point.X);
             }
         }
