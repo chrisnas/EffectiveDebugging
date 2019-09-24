@@ -34,6 +34,7 @@ namespace StockMarket
         public string Name { get; }
         public Dictionary<string, int> Inventory { get; }
         public int Balance { get; set; }
+        public int PendingOrders { get; set; }
 
         public void Refresh()
         {

@@ -64,6 +64,7 @@ namespace StockMarket
         {
             Time += TimeSpan.FromMinutes(1);
             _clock.Tick();
+            ClearExpiredOrders();
         }
 
         private void ButtonStart_Click(object sender, RoutedEventArgs e)
@@ -94,7 +95,7 @@ namespace StockMarket
 
                 foreach (var item in Cat.Items)
                 {
-                    var desire = _rnd.Next(0, 6);
+                    var desire = _rnd.Next(0, 4);
 
                     if (desire == 0)
                     {
@@ -117,25 +118,42 @@ namespace StockMarket
                         // Gimme the monnies
                         Sell(item, cat, perceivedValue[item]);
                     }
-                    else if (desire == 5)
+                    else if (desire == 3)
                     {
                         // The cat wants more! Is there any for sale, and can we afford it?
                         var orders = FindOrders(item);
 
-                        var bestOrder = orders.Where(o => o.Seller != cat).OrderBy(o => o.Price).FirstOrDefault();
+                        var bestOrders = orders.Where(o => o.Seller != cat && o.Price <= cat.Balance).OrderBy(o => o.Price);
 
-                        if (bestOrder == null || bestOrder.Price > cat.Balance)
+                        foreach (var order in bestOrders)
                         {
-                            // Meow :(
-                            continue;
+                            // Gimme! Moar! Take my monnies!
+                            if (Buy(order, cat))
+                            {
+                                break;
+                            }
                         }
-
-                        // Gimme! Moar! Take my monnies!
-                        Buy(bestOrder, cat);
                     }
                 }
 
                 _clock.WaitForNextCycle();
+            }
+        }
+
+        private void ClearExpiredOrders()
+        {
+            lock (Orders)
+            {
+                var expiredOrders = Orders.Where(o => (Time - o.Timestamp).TotalMinutes > 5).ToList();
+
+                foreach (var order in expiredOrders)
+                {
+                    lock (order.Seller)
+                    {
+                        Orders.Remove(order);
+                        order.Seller.PendingOrders -= 1;
+                    }
+                }
             }
         }
 
@@ -149,26 +167,42 @@ namespace StockMarket
 
         private void Sell(string item, Cat seller, int price)
         {
-            lock (Orders)
+            lock (seller)
             {
-                Orders.Add(new Order(seller, item, price));
+                if (seller.PendingOrders < 2)
+                {
+                    lock (Orders)
+                    {
+                        Orders.Add(new Order(seller, item, price, Time));
+                        seller.PendingOrders += 1;
+                    }
+                }
             }
         }
 
-        private void Buy(Order order, Cat buyer)
+        private bool Buy(Order order, Cat buyer)
         {
-            lock (buyer)
+            lock (order.Seller)
             {
                 _clock.WaitForNextCycle();
 
-                lock (order.Seller)
+                lock (buyer)
                 {
                     _clock.WaitForNextCycle();
+
+                    lock (Orders)
+                    {
+                        // Is the order still there?
+                        if (!Orders.Contains(order))
+                        {
+                            return false;
+                        }
+                    }
 
                     // Check that the order is still valid
                     if (order.Seller.Inventory[order.Item] < 1 || buyer.Balance < order.Price)
                     {
-                        return;
+                        return false;
                     }
 
                     // The actual transaction
@@ -180,6 +214,7 @@ namespace StockMarket
                     lock (Orders)
                     {
                         Orders.Remove(order);
+                        order.Seller.PendingOrders -= 1;
                     }
 
                     // Refresh display and update transaction history
@@ -190,6 +225,8 @@ namespace StockMarket
                     {
                         TransactionHistory.Add($"{buyer.Name} bought {order.Item} from {order.Seller.Name} for ${order.Price}");
                     }
+
+                    return true;
                 }
             }
         }
