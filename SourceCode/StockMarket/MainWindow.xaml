@@ -1,0 +1,92 @@
+﻿<Window x:Class="StockMarket.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:StockMarket"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto"/>
+            <RowDefinition />
+        </Grid.RowDefinitions>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition />
+            <ColumnDefinition />
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="10 10 0 0">
+            <TextBlock Text="Time: " />
+            <TextBlock Text="{Binding Path=Time, StringFormat='hh\\:mm'}" />
+        </StackPanel>
+
+        <Button x:Name="ButtonStart" Grid.Row="0" Grid.ColumnSpan="3" Margin="0 10 10 0" HorizontalAlignment="Right" Content="Start" Width="100" Click="ButtonStart_Click"/>
+        
+        <ItemsControl Grid.Row="2" Grid.Column="0" ItemsSource="{Binding Path=Cats}" Margin="10 10 0 10">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate >
+                    <Border BorderThickness="1" BorderBrush="Black" Margin="0 0 0 10" Padding="5 5 20 5" d:DataContext="{d:DesignInstance local:Cat}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="50" />
+                                <ColumnDefinition />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="{Binding Path=Name}" FontWeight="Bold" />
+
+                            <TextBlock Grid.Row="1" Text="Balance:" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Path=Balance, StringFormat=${0}}" />
+
+
+                            <TextBlock Grid.Row="2" Text="Catnip:" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Path=Inventory[Catnip]}" />
+
+                            <TextBlock Grid.Row="3" Text="Tuna:" />
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Path=Inventory[Tuna]}" />
+
+                            <TextBlock Grid.Row="4" Text="Boxes:" />
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Path=Inventory[Boxes]}" />
+
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Grid.Row="1" Grid.Column="1" Text="Pending orders" Margin="10 0 0 0" />
+
+        <ListView Grid.Row="2" Grid.Column="1" ItemsSource="{Binding Path=Orders}" Margin="10 10 0 10">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock >
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat="{}{0} sells {1} for ${2}">
+                                    <Binding Path="Seller.Name" />
+                                    <Binding Path="Item" />
+                                    <Binding Path="Price" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <TextBlock Grid.Row="1" Grid.Column="2" Text="Transaction history" Margin="10 0 0 0" />
+
+        <ListView Grid.Row="2" Grid.Column="2" ItemsSource="{Binding Path=TransactionHistory}" Margin="10 10 10 10" />
+    </Grid>
+</Window>
