@@ -181,6 +181,8 @@ namespace StockMarket
         {
             lock (order.Seller)
             {
+                _clock.WaitForNextCycle();
+
                 lock (buyer)
                 {
                     _clock.WaitForNextCycle();
