@@ -14,8 +14,7 @@ namespace StockMarket
 {
     public partial class MainWindow : INotifyPropertyChanged
     {
-        private readonly DispatcherTimer _timer;
-        private readonly Clock _clock = new Clock();
+        private readonly Clock _clock;
         private Random _rnd = new Random(42);
         private TimeSpan _time;
 
@@ -23,8 +22,7 @@ namespace StockMarket
         {
             InitializeComponent();
 
-            _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            _timer.Tick += TimerTick;
+            _clock = new Clock(OnTick);
 
             Cats = new ObservableCollection<Cat>
             {
@@ -60,10 +58,9 @@ namespace StockMarket
 
         public ObservableCollection<string> TransactionHistory { get; }
 
-        private void TimerTick(object sender, EventArgs e)
+        private void OnTick()
         {
             Time += TimeSpan.FromMinutes(1);
-            _clock.Tick();
             ClearExpiredOrders();
         }
 
@@ -71,7 +68,7 @@ namespace StockMarket
         {
             ((Button)sender).IsEnabled = false;
 
-            _timer.Start();
+            _clock.Start();
 
             foreach (var cat in Cats)
             {
@@ -184,8 +181,6 @@ namespace StockMarket
         {
             lock (order.Seller)
             {
-                _clock.WaitForNextCycle();
-
                 lock (buyer)
                 {
                     _clock.WaitForNextCycle();
