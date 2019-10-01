@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -32,11 +33,13 @@ namespace DebugMeow.Games.Tetris
 
         private int _score;
 
-        private Random _rnd = new Random();
+        private Random _rnd = new Random(42);
 
-        private Stopwatch _lastUpdate = new Stopwatch();
-        private Stopwatch _lastMove = new Stopwatch();
-        private Stopwatch _lastRotate = new Stopwatch();
+        private Stopwatch _lastFrame = Stopwatch.StartNew();
+        private Stopwatch _lastUpdate = Stopwatch.StartNew();
+        private Stopwatch _lastMove = Stopwatch.StartNew();
+        private Stopwatch _lastRotate = Stopwatch.StartNew();
+        private Queue<int> _lastFrameDelays = new Queue<int>();
 
         public TetrisForm()
         {
@@ -73,8 +76,9 @@ namespace DebugMeow.Games.Tetris
         {
             ClearGrid();
             UpdateScore(0);
+            _lastMove.Reset();
+            _lastFrame.Restart();
             _lastUpdate.Restart();
-            _lastMove.Restart();
             _lastRotate.Restart();
             _currentBlock = null;
             UpdateGame();
@@ -87,67 +91,8 @@ namespace DebugMeow.Games.Tetris
             LabelScore.Text = score.ToString();
         }
 
-        private bool MoveBlock(int offsetX, int offsetY)
+        private void CheckInput()
         {
-            // Bug: don't start the _lastMove stopwatch
-            // It demonstrates the use of a conditional breakpoint on offset
-
-            if (offsetX == 0 && offsetY == 0)
-            {
-                return false;
-            }
-
-            if (_lastMove.ElapsedMilliseconds < MoveSpeedInMilliseconds)
-            {
-                return false;
-            }
-
-            _lastMove.Restart();
-
-            _currentPosition.X += offsetX;
-            _currentPosition.Y += offsetY;
-
-            foreach (var coordinate in _currentBlock.GetCoordinates())
-            {
-                if (IntersectsWithSomething(_currentPosition + coordinate))
-                {
-                    _currentPosition.X -= offsetX;
-                    _currentPosition.Y -= offsetY;
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private bool RotateBlock()
-        {
-            if (_lastRotate.ElapsedMilliseconds < RotateSpeedInMilliseconds)
-            {
-                return false;
-            }
-
-            _lastRotate.Restart();
-
-            int newRotation = _currentBlock.Rotation + 1 % 4;
-
-            foreach (var point in _currentBlock.GetCoordinates(newRotation))
-            {
-                if (IntersectsWithSomething(_currentPosition + point))
-                {
-                    return false;
-                }
-            }
-
-            _currentBlock.Rotation = newRotation;
-
-            return true;
-        }
-
-        private void UpdateGame()
-        {
-            bool needRefresh = false;
-
             if (_currentBlock != null)
             {
                 int offsetX = 0;
@@ -167,12 +112,73 @@ namespace DebugMeow.Games.Tetris
                 }
                 else if (IsKeyDown(Keys.Up))
                 {
-                    needRefresh = RotateBlock();
+                    RotateBlock();
                 }
 
-                needRefresh = needRefresh || MoveBlock(offsetX, offsetY);
+                MoveBlock(offsetX, offsetY);
+            }
+        }
+
+        private void MoveBlock(int offsetX, int offsetY)
+        {
+            if (offsetX == 0 && offsetY == 0)
+            {
+                return;
             }
 
+            // Limit the rate at which a block can be moved
+            if (_lastMove.ElapsedMilliseconds < MoveSpeedInMilliseconds)
+            {
+                return;
+            }
+
+            _lastMove.Restart();
+
+            // Move the block
+            _currentPosition.X += offsetX;
+            _currentPosition.Y += offsetY;
+
+            // Check if moving it makes it intersect with something
+            foreach (var coordinate in _currentBlock.GetCoordinates())
+            {
+                if (IntersectsWithSomething(_currentPosition + coordinate))
+                {
+                    // Part of the block intersects with something, cancel the move
+                    _currentPosition.X -= offsetX;
+                    _currentPosition.Y -= offsetY;
+                    return;
+                }
+            }
+        }
+
+        private void RotateBlock()
+        {
+            if (_lastRotate.ElapsedMilliseconds < RotateSpeedInMilliseconds)
+            {
+                return;
+            }
+
+            _lastRotate.Restart();
+
+            int newRotation = _currentBlock.Rotation + 1 % 4;
+
+            foreach (var point in _currentBlock.GetCoordinates(newRotation))
+            {
+                if (IntersectsWithSomething(_currentPosition + point))
+                {
+                    return;
+                }
+            }
+
+            _currentBlock.Rotation = newRotation;
+        }
+
+        private void UpdateGame()
+        {
+            // Check input
+            CheckInput();
+
+            // Move the block down
             if (_lastUpdate.ElapsedMilliseconds > UpdateSpeedInMilliseconds)
             {
                 if (_currentBlock == null)
@@ -187,9 +193,7 @@ namespace DebugMeow.Games.Tetris
                     // Check for collisions
                     foreach (var coordinate in _currentBlock.GetCoordinates())
                     {
-                        // Bug: remove the sum
-                        // Interesting use of tracepoints
-                        if (IntersectsWithSomething(coordinate + _currentPosition))
+                        if (IntersectsWithSomething(coordinate))
                         {
                             if (!DropBlock(_currentPosition + (0, -1), _currentBlock))
                             {
@@ -203,14 +207,11 @@ namespace DebugMeow.Games.Tetris
                     }
                 }
 
-                needRefresh = true;
                 _lastUpdate.Restart();
             }
 
-            if (needRefresh)
-            {
-                GameArea.Invalidate();
-            }
+            GameArea.Invalidate();
+            UpdateStats();
         }
 
         private void GameOver()
@@ -337,6 +338,9 @@ namespace DebugMeow.Games.Tetris
                 return;
             }
 
+            _lastFrameDelays.Enqueue((int)_lastFrame.ElapsedMilliseconds);
+            _lastFrame.Restart();
+
             e.Graphics.Clear(BackColor);
 
             for (int i = 0; i < Width; i++)
@@ -362,6 +366,17 @@ namespace DebugMeow.Games.Tetris
 
                     FillRectangle(e.Graphics, _currentBlock.Brush, _currentPosition.X + point.X, _currentPosition.Y + point.Y);
                 }
+            }
+        }
+
+        private void UpdateStats()
+        {
+            if (_lastFrameDelays.Count > 5)
+            {
+                LabelDelay.Text = (int)_lastFrameDelays.Average() + " ms";
+                _lastFrameDelays.Clear();
+                var s = _lastRotate;
+                s.Restart();
             }
         }
 
